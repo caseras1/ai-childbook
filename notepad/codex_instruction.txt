@@ -1,0 +1,54 @@
+I am getting a 403 HTML response from Leonardo / Cloudflare saying "Just a moment..." when I try to generate images/stories with the Leonardo API.
+
+Right now my code is calling the Leonardo endpoint in a way that Cloudflare treats like a browser/bot instead of a normal backend API request.
+
+Please fix my Leonardo API integration with the following changes and constraints:
+
+1. USE THE CORRECT API BASE URL
+- Find all requests that call a Leonardo endpoint like:
+  - https://leonardo.ai/api/rest/v1/generations
+  - or anything on https://leonardo.ai/api/…
+- Replace them so ALL API calls use this base URL instead:
+  - https://cloud.leonardo.ai/api/rest/v1/generations
+
+2. ENSURE PROPER HEADERS
+For the POST request that creates a generation, make sure the request looks like a clean JSON API call with these headers (no extra headers unless absolutely needed):
+- "accept": "application/json"
+- "content-type": "application/json"
+- "authorization": "Bearer MY_API_KEY_HERE"
+  (keep using my existing environment variable or config value for the key, don’t hardcode it)
+
+3. BACKEND-ONLY CALLS (NO FRONTEND FETCH TO LEONARDO)
+- Make sure Leonardo API requests run ONLY on the server/backend (Node/Express or whatever backend this project uses).
+- If there is any code that calls the Leonardo API directly from the browser (frontend fetch/axios in React/Next/etc.), refactor it so:
+  - Frontend → calls my own backend endpoint (e.g. /api/generate-story or similar)
+  - Backend endpoint → calls https://cloud.leonardo.ai/api/rest/v1/generations with the API key and returns the result to the frontend.
+- Remove any direct call from client-side code to the Leonardo domain.
+
+4. CLEAN REQUEST BODY
+- Check the JSON body sent to the generations endpoint.
+- Keep it minimal and valid, something like:
+  {
+    "height": 512,
+    "width": 512,
+    "modelId": "<my existing model id variable>",
+    "prompt": "<the prompt we already build in the app for the story/child image>"
+  }
+- Do NOT send any Cloudflare-related query parameters like "__cf_chl_*" or anything copied from a browser URL.
+- Make sure all booleans (e.g. photoReal) are true/false, not "true"/"false" strings.
+
+5. ERROR HANDLING
+- Add error handling around the Leonardo call:
+  - If the response status is not 2xx, log the status code and response body.
+  - If the response is HTML instead of JSON, detect that and throw a clear error like "Unexpected HTML from Leonardo (Cloudflare)".
+
+6. DON’T CHANGE BUSINESS LOGIC
+- Keep all my existing story logic, templates, and how I build the prompt for the story and character.
+- Only change the networking layer / integration code needed to:
+  - use the correct cloud.leonardo.ai endpoint,
+  - use the correct headers,
+  - ensure calls happen from the backend instead of the browser.
+
+Finally:
+- Update any helper functions that wrap the Leonardo generation call so the whole project now uses this fixed version.
+- After changes, the Leonardo API call should return proper JSON (generation id, etc.) and must NOT return the Cloudflare "Just a moment…" HTML page anymore.

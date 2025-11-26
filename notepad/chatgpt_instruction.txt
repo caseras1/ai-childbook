@@ -1,0 +1,76 @@
+C:\Users\erasc>curl -H "Authorization: Bearer 3da40256-5bc3-4b74-8d94-c5fa22e0f5ee" https://cloud.leonardo.ai/api/rest/v1/models
+{"error":"Allowed methods: POST","path":"$","code":"method-not-allowed"}
+ChatGPT zei:
+Nagedacht gedurende 52s
+
+Nice, that {"error":"Allowed methods: POST"} is actually good news 😄
+
+It means:
+
+DNS works ✅
+
+Your Bearer key is valid ✅
+
+You’re talking to Leonardo ✅
+
+You just hit an endpoint with the wrong HTTP method
+
+/api/rest/v1/models only accepts POST, and it’s not the one you want anyway.
+
+1. How to actually get model IDs
+
+Use the platform models endpoint (this one does support GET):
+
+curl -H "Authorization: Bearer 3da40256-5bc3-4b74-8d94-c5fa22e0f5ee" `
+     -H "accept: application/json" `
+     https://cloud.leonardo.ai/api/rest/v1/platformModels
+
+
+That will return JSON with a list of models, something like:
+
+{
+  "platformModels": [
+    {
+      "id": "16e7060a-803e-4df3-97ee-edcfa5dc9cc8",
+      "name": "SDXL 1.0"
+    },
+    {
+      "id": "aa77f04e-3eec-4034-9c07-d0f619684628",
+      "name": "Leonardo Kino XL"
+    },
+    ...
+  ]
+}
+
+
+From the docs we know for example: 
+Leonardo.Ai
+
+SDXL 1.0 → 16e7060a-803e-4df3-97ee-edcfa5dc9cc8
+
+Leonardo Kino XL → aa77f04e-3eec-4034-9c07-d0f619684628
+
+Pick one of those id values as your modelId.
+
+2. Test a simple generation call
+
+Once you’ve picked a model ID, run this to test:
+
+curl -X POST "https://cloud.leonardo.ai/api/rest/v1/generations" `
+  -H "Authorization: Bearer 3da40256-5bc3-4b74-8d94-c5fa22e0f5ee" `
+  -H "accept: application/json" `
+  -H "content-type: application/json" `
+  -d "{\"height\":512,\"width\":512,\"modelId\":\"16e7060a-803e-4df3-97ee-edcfa5dc9cc8\",\"prompt\":\"storybook illustration of a happy kid in a forest\"}"
+
+
+Replace 16e7... with whatever model ID you chose.
+
+If that returns JSON with a generationId, you’re fully connected.
+
+Later you’ll plug in:
+
+Your Anna_kid element ID in an elements array
+
+Your full story prompt logic from Python
+
+…but right now you’ve already beaten the hardest parts: auth + DNS. Now it’s just about hitting the right endpoints with the right methods.

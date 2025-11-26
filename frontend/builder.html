@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Storybook Generator · Generator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <nav>
+      <div class="brand">Storybook Generator</div>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="builder.html">Generator</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="section">
+      <h1>Generate your story</h1>
+      <p>Select a story template and enter the child's name.</p>
+      <div class="row">
+        <select id="storySelect"></select>
+        <select id="modelSelect"></select>
+        <input type="text" id="childName" placeholder="Child name" />
+        <button id="generateBtn">Generate</button>
+      </div>
+      <div class="log" id="log">Waiting to start…</div>
+      <div class="progress" id="progress"><div class="bar" id="progressBar"></div></div>
+    </section>
+  </main>
+
+  <script src="builder.js"></script>
+</body>
+</html>

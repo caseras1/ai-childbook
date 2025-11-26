@@ -1,0 +1,135 @@
+from __future__ import annotations
+
+import json
+import os
+import time
+from pathlib import Path
+
+import requests
+from dotenv import load_dotenv
+
+ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(ROOT / ".env")
+
+BASE_URL = "https://cloud.leonardo.ai/api/rest/v1"
+API_KEY = os.getenv("LEONARDO_API_KEY")
+
+if not API_KEY:
+    raise RuntimeError("LEONARDO_API_KEY not set in .env")
+
+HEADERS = {
+    "accept": "application/json",
+    "content-type": "application/json",
+    "authorization": f"Bearer {API_KEY}",
+}
+
+
+def start_generation(
+    prompt: str,
+    model_id: str,
+    width: int = 1024,
+    height: int = 1024,
+    num_images: int = 1,
+    negative_prompt: str | None = None,
+    elements: list[dict] | None = None,
+) -> str:
+    payload: dict = {
+        "prompt": prompt,
+        "modelId": model_id,
+        "width": width,
+        "height": height,
+        "num_images": num_images,
+    }
+    if negative_prompt:
+        payload["negative_prompt"] = negative_prompt
+    if elements:
+        payload["elements"] = elements
+    print("POST /generations payload:")
+    print(json.dumps(payload, indent=2))
+
+    resp = requests.post(
+        f"{BASE_URL}/generations",
+        headers={
+            "accept": "application/json",
+            "content-type": "application/json",
+            "authorization": f"Bearer {API_KEY}",
+        },
+        json=payload,
+        timeout=60,
+    )
+    content_type = resp.headers.get("content-type", "")
+    if not resp.ok:
+        print("Status:", resp.status_code)
+        print(resp.text)
+    if "text/html" in content_type.lower():
+        raise RuntimeError("Unexpected HTML from Leonardo (Cloudflare).")
+    resp.raise_for_status()
+    data = resp.json()
+    # Leonardo returns sdGenerationJob.generationId; if missing, surface error
+    if "sdGenerationJob" not in data or "generationId" not in data["sdGenerationJob"]:
+        raise RuntimeError(f"Unexpected response from Leonardo: {data}")
+    return data["sdGenerationJob"]["generationId"]
+
+
+def poll_generation(generation_id: str, max_attempts: int = 30, interval_seconds: int = 5) -> dict:
+    url = f"{BASE_URL}/generations/{generation_id}"
+    for attempt in range(1, max_attempts + 1):
+        time.sleep(interval_seconds)
+        resp = requests.get(url, headers=HEADERS, timeout=60)
+        if resp.status_code >= 400:
+            print(f"Poll {attempt}: error {resp.status_code} {resp.text}")
+            continue
+        data = resp.json()
+        gen = data.get("generations_by_pk") or data
+        status = gen.get("status")
+        print(f"Poll {attempt} status: {status}")
+        if status == "COMPLETE":
+            return gen
+        if status in ("FAILED", "CANCELLED"):
+            raise RuntimeError(f"Generation failed with status: {status}")
+    raise RuntimeError("Polling ended without COMPLETE status")
+
+
+def get_first_image_url(result_json: dict) -> str:
+    images = result_json.get("generated_images") or []
+    if not images:
+        raise RuntimeError("No generated_images found in result JSON")
+    url = images[0].get("url")
+    if not url:
+        raise RuntimeError("No URL found in first generated image")
+    return url
+
+
+def download_image(url: str, out_path: Path) -> Path:
+    resp = requests.get(url, timeout=120)
+    resp.raise_for_status()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "wb") as f:
+        f.write(resp.content)
+    return out_path
+
+
+def generate_image_and_download(
+    prompt: str,
+    model_id: str,
+    out_path: Path,
+    width: int = 1024,
+    height: int = 1024,
+    num_images: int = 1,
+    negative_prompt: str | None = None,
+    element_id: str | None = None,
+) -> tuple[Path, str]:
+    elements = [{"id": element_id, "weight": 1.0}] if element_id else None
+    generation_id = start_generation(
+        prompt=prompt,
+        model_id=model_id,
+        width=width,
+        height=height,
+        num_images=num_images,
+        negative_prompt=negative_prompt,
+        elements=elements,
+    )
+    result = poll_generation(generation_id)
+    image_url = get_first_image_url(result)
+    local_path = download_image(image_url, out_path)
+    return local_path, image_url

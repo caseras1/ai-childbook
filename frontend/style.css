@@ -1,0 +1,101 @@
+:root {
+  --bg: #f5fbff;
+  --panel: #ffffff;
+  --accent: #2b9cf0;
+  --text: #0f172a;
+  --muted: #4b5563;
+  --border: #e5e7eb;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+header {
+  position: sticky;
+  top: 0;
+  background: rgba(245,251,255,0.9);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+}
+nav {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.brand { font-weight: 800; font-size: 18px; letter-spacing: -0.02em; }
+.nav-links { display: flex; gap: 12px; flex-wrap: wrap; color: var(--muted); font-weight: 600; }
+.nav-links a { color: inherit; text-decoration: none; }
+.nav-links a:hover { color: var(--accent); }
+main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 18px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 8px 30px rgba(15,23,42,0.06);
+}
+h1 { margin: 0 0 10px; font-size: 28px; }
+p { margin: 0 0 12px; color: var(--muted); line-height: 1.6; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+select, button, input[type="text"], input[type="file"] {
+  font-size: 15px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  background: #f8fbff;
+  color: var(--text);
+  font-family: inherit;
+}
+button {
+  cursor: pointer;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 6px 18px rgba(43,156,240,0.25);
+}
+button:active { transform: translateY(1px); }
+.log {
+  margin-top: 10px;
+  padding: 12px;
+  background: #f8fbff;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  min-height: 44px;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 14px;
+  color: var(--muted);
+}
+.progress {
+  margin-top: 10px;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #e5edf7;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  display: none;
+}
+.progress .bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), #69c5ff);
+  transition: width 0.2s ease;
+}
+ul { padding-left: 18px; color: var(--muted); }
