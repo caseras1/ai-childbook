@@ -3,25 +3,44 @@ from __future__ import annotations
 import json
 import os
 import time
+from functools import lru_cache
 from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(ROOT / ".env")
 
 BASE_URL = "https://cloud.leonardo.ai/api/rest/v1"
-API_KEY = os.getenv("LEONARDO_API_KEY")
 
-if not API_KEY:
-    raise RuntimeError("LEONARDO_API_KEY not set in .env")
 
-HEADERS = {
-    "accept": "application/json",
-    "content-type": "application/json",
-    "authorization": f"Bearer {API_KEY}",
-}
+@lru_cache(maxsize=1)
+def get_api_key() -> str:
+    """Return the Leonardo API key from .env or environment variables.
+
+    The original implementation raised a RuntimeError during import if the key
+    was missing, which prevented the rest of the application (including
+    frontend development) from running. We lazily load and cache the key so the
+    error is raised only when Leonardo requests are initiated.
+    """
+
+    load_dotenv(ROOT / ".env")
+    api_key = os.getenv("LEONARDO_API_KEY")
+    if api_key and api_key.strip() and "<" not in api_key:
+        return api_key
+
+    raise RuntimeError(
+        "LEONARDO_API_KEY not set. Add it to .env (LEONARDO_API_KEY=...) or set "
+        "the environment variable before calling Leonardo APIs."
+    )
+
+
+def build_headers(api_key: str) -> dict:
+    return {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "authorization": f"Bearer {api_key}",
+    }
 
 
 def start_generation(
@@ -33,6 +52,7 @@ def start_generation(
     negative_prompt: str | None = None,
     elements: list[dict] | None = None,
 ) -> str:
+    api_key = get_api_key()
     payload: dict = {
         "prompt": prompt,
         "modelId": model_id,
@@ -49,11 +69,7 @@ def start_generation(
 
     resp = requests.post(
         f"{BASE_URL}/generations",
-        headers={
-            "accept": "application/json",
-            "content-type": "application/json",
-            "authorization": f"Bearer {API_KEY}",
-        },
+        headers=build_headers(api_key),
         json=payload,
         timeout=60,
     )
@@ -73,9 +89,11 @@ def start_generation(
 
 def poll_generation(generation_id: str, max_attempts: int = 30, interval_seconds: int = 5) -> dict:
     url = f"{BASE_URL}/generations/{generation_id}"
+    api_key = get_api_key()
+    headers = build_headers(api_key)
     for attempt in range(1, max_attempts + 1):
         time.sleep(interval_seconds)
-        resp = requests.get(url, headers=HEADERS, timeout=60)
+        resp = requests.get(url, headers=headers, timeout=60)
         if resp.status_code >= 400:
             print(f"Poll {attempt}: error {resp.status_code} {resp.text}")
             continue
