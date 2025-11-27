@@ -145,7 +145,12 @@ def get_first_image_url(result_json: dict) -> str:
 
 
 def download_image(url: str, out_path: Path) -> Path:
-    resp = requests.get(url, timeout=120)
+    try:
+        resp = requests.get(url, timeout=120)
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(
+            "Could not download image from Leonardo. Check connectivity, VPN/proxy, or DNS."
+        ) from exc
     resp.raise_for_status()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "wb") as f:
