@@ -71,6 +71,26 @@ def _raise_request_error(resp: requests.Response, payload: dict[str, Any]) -> No
     )
 
 
+def _parse_json_response(resp: requests.Response, context: str) -> dict:
+    """Return response JSON or raise a helpful error when parsing fails."""
+
+    content_type = resp.headers.get("content-type", "")
+    if "text/html" in content_type.lower():
+        raise RuntimeError(
+            f"{context}: Unexpected HTML from Leonardo (Cloudflare). Body: {resp.text[:300]}"
+        )
+    if "json" not in content_type.lower():
+        raise RuntimeError(
+            f"{context}: Expected JSON response but got content-type '{content_type}'. Body: {resp.text[:300]}"
+        )
+    try:
+        return resp.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            f"{context}: Could not parse JSON response. Body: {resp.text[:300]}"
+        ) from exc
+
+
 def start_generation(
     prompt: str,
     model_id: str,
@@ -117,12 +137,9 @@ def start_generation(
         raise RuntimeError(
             "Could not reach Leonardo. Check your internet connection, VPN/proxy, or DNS settings."
         ) from exc
-    content_type = resp.headers.get("content-type", "")
     if not resp.ok:
         _raise_request_error(resp, payload)
-    if "text/html" in content_type.lower():
-        raise RuntimeError("Unexpected HTML from Leonardo (Cloudflare).")
-    data = resp.json()
+    data = _parse_json_response(resp, "Leonardo generation response")
     # Leonardo returns sdGenerationJob.generationId; if missing, surface error
     if "sdGenerationJob" not in data or "generationId" not in data["sdGenerationJob"]:
         raise RuntimeError(f"Unexpected response from Leonardo: {data}")
@@ -144,7 +161,10 @@ def poll_generation(generation_id: str, max_attempts: int = 30, interval_seconds
         if resp.status_code >= 400:
             print(f"Poll {attempt}: error {resp.status_code} {resp.text}")
             continue
-        data = resp.json()
+        try:
+            data = _parse_json_response(resp, "Leonardo poll response")
+        except RuntimeError as exc:
+            raise RuntimeError(f"Polling failed: {exc}") from exc
         gen = data.get("generations_by_pk") or data
         status = gen.get("status")
         print(f"Poll {attempt} status: {status}")
@@ -203,7 +223,7 @@ def list_platform_models(limit: int = 15) -> list[dict[str, Any]]:
         ) from exc
     if not resp.ok:
         _raise_request_error(resp, payload={})
-    data = resp.json()
+    data = _parse_json_response(resp, "Leonardo platformModels response")
     models = data.get("data") or data
     if not isinstance(models, list):
         raise RuntimeError(f"Unexpected platformModels response: {data}")
