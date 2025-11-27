@@ -5,6 +5,7 @@ import os
 import time
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import requests
 from dotenv import load_dotenv
@@ -25,8 +26,8 @@ def get_api_key() -> str:
     """
 
     load_dotenv(ROOT / ".env")
-    api_key = os.getenv("LEONARDO_API_KEY")
-    if api_key and api_key.strip() and "<" not in api_key:
+    api_key = (os.getenv("LEONARDO_API_KEY") or "").strip()
+    if api_key and "<" not in api_key:
         return api_key
 
     raise RuntimeError(
@@ -42,6 +43,32 @@ def build_headers(api_key: str) -> dict:
         "authorization": f"Bearer {api_key}",
     }
 
+def _raise_request_error(resp: requests.Response, payload: dict[str, Any]) -> None:
+    """Raise a RuntimeError with detailed context from a Leonardo response."""
+
+    error_detail: str | None = None
+    try:
+        data = resp.json()
+        error_detail = data.get("error") or data.get("message") or data
+    except Exception:
+        error_detail = resp.text
+
+    hints = []
+    if resp.status_code == 401:
+        hints.append("Check LEONARDO_API_KEY; the key may be missing or invalid.")
+    if resp.status_code == 400:
+        hints.append(
+            "Verify modelId, width/height limits, and that the prompt is not empty."
+        )
+        if payload.get("modelId"):
+            hints.append(
+                "Model IDs come from Leonardo > Models > (select model) > ID in the URL."
+            )
+    hint_text = f" Hints: {' '.join(hints)}" if hints else ""
+    raise RuntimeError(
+        f"Leonardo request failed ({resp.status_code}). Details: {error_detail}.{hint_text}"
+    )
+
 
 def start_generation(
     prompt: str,
@@ -53,6 +80,7 @@ def start_generation(
     elements: list[dict] | None = None,
 ) -> str:
     api_key = get_api_key()
+    headers = build_headers(api_key)
     payload: dict = {
         "prompt": prompt,
         "modelId": model_id,
@@ -75,11 +103,9 @@ def start_generation(
     )
     content_type = resp.headers.get("content-type", "")
     if not resp.ok:
-        print("Status:", resp.status_code)
-        print(resp.text)
+        _raise_request_error(resp, payload)
     if "text/html" in content_type.lower():
         raise RuntimeError("Unexpected HTML from Leonardo (Cloudflare).")
-    resp.raise_for_status()
     data = resp.json()
     # Leonardo returns sdGenerationJob.generationId; if missing, surface error
     if "sdGenerationJob" not in data or "generationId" not in data["sdGenerationJob"]:
