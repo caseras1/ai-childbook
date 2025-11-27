@@ -121,6 +121,7 @@ def generate_story(
 
     resolved_model_id = model_id or model_cfg.get("model_id") or DEFAULT_MODEL_ID
     element_id = model_cfg.get("element_id")
+    dataset_id = model_cfg.get("dataset_id")
     if not resolved_model_id or "<" in resolved_model_id or resolved_model_id.strip() == "":
         raise ValueError("No valid model_id set. Update config/models.py with a valid model ID (e.g., from /platformModels).")
     style_hint = model_cfg.get("style_hint", STYLE_HINT)
@@ -142,6 +143,7 @@ def generate_story(
             height=1024,
             negative_prompt=NEGATIVE_PROMPT,
             element_id=element_id,
+            dataset_id=dataset_id,
         )
         img = Image.open(out_img).convert("RGB")
         page_img = render_page_with_text(img, page["text"], title=f"Page {page['page']}")

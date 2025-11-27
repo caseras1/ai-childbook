@@ -43,6 +43,7 @@ def build_headers(api_key: str) -> dict:
         "authorization": f"Bearer {api_key}",
     }
 
+
 def _raise_request_error(resp: requests.Response, payload: dict[str, Any]) -> None:
     """Raise a RuntimeError with detailed context from a Leonardo response."""
 
@@ -64,6 +65,10 @@ def _raise_request_error(resp: requests.Response, payload: dict[str, Any]) -> No
             hints.append(
                 "Model IDs come from Leonardo > Models > (select model) > ID in the URL."
             )
+        if payload.get("datasetId"):
+            hints.append(
+                "Dataset IDs come from Leonardo > Datasets > (select dataset) > ID in the URL."
+            )
     hint_text = f" Hints: {' '.join(hints)}" if hints else ""
     raise RuntimeError(
         f"Leonardo request failed ({resp.status_code}). Details: {error_detail}.{hint_text}"
@@ -78,6 +83,7 @@ def start_generation(
     num_images: int = 1,
     negative_prompt: str | None = None,
     elements: list[dict] | None = None,
+    dataset_id: str | None = None,
 ) -> str:
     api_key = get_api_key()
     headers = build_headers(api_key)
@@ -92,15 +98,22 @@ def start_generation(
         payload["negative_prompt"] = negative_prompt
     if elements:
         payload["elements"] = elements
+    if dataset_id:
+        payload["datasetId"] = dataset_id
     print("POST /generations payload:")
     print(json.dumps(payload, indent=2))
 
-    resp = requests.post(
-        f"{BASE_URL}/generations",
-        headers=build_headers(api_key),
-        json=payload,
-        timeout=60,
-    )
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/generations",
+            headers=headers,
+            json=payload,
+            timeout=60,
+        )
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(
+            "Could not reach Leonardo. Check your internet connection, VPN/proxy, or DNS settings."
+        ) from exc
     content_type = resp.headers.get("content-type", "")
     if not resp.ok:
         _raise_request_error(resp, payload)
@@ -119,7 +132,12 @@ def poll_generation(generation_id: str, max_attempts: int = 30, interval_seconds
     headers = build_headers(api_key)
     for attempt in range(1, max_attempts + 1):
         time.sleep(interval_seconds)
-        resp = requests.get(url, headers=headers, timeout=60)
+        try:
+            resp = requests.get(url, headers=headers, timeout=60)
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(
+                "Could not reach Leonardo while polling. Check connectivity, VPN/proxy, or DNS."
+            ) from exc
         if resp.status_code >= 400:
             print(f"Poll {attempt}: error {resp.status_code} {resp.text}")
             continue
@@ -167,6 +185,7 @@ def generate_image_and_download(
     num_images: int = 1,
     negative_prompt: str | None = None,
     element_id: str | None = None,
+    dataset_id: str | None = None,
 ) -> tuple[Path, str]:
     elements = [{"id": element_id, "weight": 1.0}] if element_id else None
     generation_id = start_generation(
@@ -177,6 +196,7 @@ def generate_image_and_download(
         num_images=num_images,
         negative_prompt=negative_prompt,
         elements=elements,
+        dataset_id=dataset_id,
     )
     result = poll_generation(generation_id)
     image_url = get_first_image_url(result)
