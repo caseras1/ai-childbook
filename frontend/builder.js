@@ -7,8 +7,28 @@ const logEl = document.getElementById("log");
 const progress = document.getElementById("progress");
 const progressBar = document.getElementById("progressBar");
 
+let templateOptions = [];
+
 function log(msg) {
   if (logEl) logEl.textContent = msg;
+}
+
+function formatStoryTitle(baseTitle, childName = "") {
+  const cleaned = (childName || "").trim();
+  if (!cleaned) return baseTitle;
+  const possessive = cleaned.endsWith("s") ? `${cleaned}'` : `${cleaned}'s`;
+  return `${possessive} ${baseTitle}`;
+}
+
+function renderStoryOptions(childName = "") {
+  if (!storySelect) return;
+  storySelect.innerHTML = "";
+  templateOptions.forEach((t) => {
+    const opt = document.createElement("option");
+    opt.value = t.key;
+    opt.textContent = formatStoryTitle(t.title, childName);
+    storySelect.appendChild(opt);
+  });
 }
 
 async function loadTemplates() {
@@ -17,15 +37,8 @@ async function loadTemplates() {
     const [tRes, mRes] = await Promise.all([fetch("/api/templates"), fetch("/api/models")]);
     const templates = (await tRes.json()).templates || [];
     const models = (await mRes.json()).models || [];
-    if (storySelect) {
-      storySelect.innerHTML = "";
-      templates.forEach((t) => {
-        const opt = document.createElement("option");
-        opt.value = t.key;
-        opt.textContent = `${t.title}`;
-        storySelect.appendChild(opt);
-      });
-    }
+    templateOptions = templates;
+    renderStoryOptions(childNameInput ? childNameInput.value : "");
     if (modelSelect) {
       modelSelect.innerHTML = "";
       models.forEach((m) => {
@@ -83,4 +96,9 @@ async function generate() {
 }
 
 if (generateBtn) generateBtn.addEventListener("click", generate);
+if (childNameInput) {
+  childNameInput.addEventListener("input", (event) => {
+    renderStoryOptions(event.target.value);
+  });
+}
 document.addEventListener("DOMContentLoaded", loadTemplates);
