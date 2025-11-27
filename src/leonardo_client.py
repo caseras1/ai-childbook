@@ -99,6 +99,7 @@ def start_generation(
     num_images: int = 1,
     negative_prompt: str | None = None,
     elements: list[dict] | None = None,
+    dataset_id: str | None = None,
 ) -> str:
     """Kick off a Leonardo generation using the official `/generations` shape.
 
@@ -120,6 +121,8 @@ def start_generation(
         payload["negative_prompt"] = negative_prompt
     if elements:
         payload["elements"] = elements
+    if dataset_id:
+        payload["datasetId"] = dataset_id
     print("POST /generations payload:")
     print(json.dumps(payload, indent=2))
 
@@ -236,6 +239,7 @@ def generate_image_and_download(
     num_images: int = 1,
     negative_prompt: str | None = None,
     element_id: str | None = None,
+    dataset_id: str | None = None,
 ) -> tuple[Path, str]:
     elements = [{"id": element_id, "weight": 1.0}] if element_id else None
     generation_id = start_generation(
@@ -246,6 +250,7 @@ def generate_image_and_download(
         num_images=num_images,
         negative_prompt=negative_prompt,
         elements=elements,
+        dataset_id=dataset_id,
     )
     result = poll_generation(generation_id)
     image_url = get_first_image_url(result)
