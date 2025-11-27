@@ -15,17 +15,17 @@ ROOT = Path(__file__).resolve().parent.parent
 
 STORY_TEMPLATES = {
     "dragons_20": {
-        "title": "Anna and the Dragon Valley",
+        "title": "Dragon Valley Adventures",
         "json_path": ROOT / "data" / "pages_dragons.json",
     },
     "vacation_20": {
-        "title": "Anna's Vacation Dream",
+        "title": "Vacation Adventures",
         "json_path": ROOT / "data" / "pages_vacation.json",
     },
 }
 
 DEFAULT_MODEL_KEY = next(iter(MODELS.keys())) if MODELS else None
-DEFAULT_MODEL_ID = "16e7060a-803e-4df3-97ee-edcfa5dc9cc8"  # SDXL 1.0 base model (platformModels)
+DEFAULT_MODEL_ID = "6bef9f1b-29cb-40c7-b9df-32b51c1f67d3"  # Platform model from Leonardo Getting Started example
 STYLE_HINT = "light-skinned girl with blond hair in a pink princess dress, holding a rose, castle softly blurred in the background"
 NEGATIVE_PROMPT = "text, logo, watermark, nsfw, blood, gore, creepy, scary, low quality"
 
@@ -99,6 +99,26 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
+def _choose_model_id(candidate: str | Sequence[str] | None) -> str | None:
+    """Return the first usable model ID from a string or sequence.
+
+    Supports lists/tuples of model IDs in `config/models.py` so the user can
+    keep multiple trained models handy. Blank strings and placeholder values
+    are ignored.
+    """
+
+    if candidate is None:
+        return None
+    if isinstance(candidate, str):
+        cleaned = candidate.strip()
+        return cleaned if cleaned and "<" not in cleaned else None
+    for model in candidate:
+        cleaned = str(model).strip()
+        if cleaned and "<" not in cleaned:
+            return cleaned
+    return None
+
+
 def generate_story(
     story_key: str,
     child_name: str,
@@ -119,7 +139,11 @@ def generate_story(
     else:
         model_cfg = next(iter(MODELS.values()), {})
 
-    resolved_model_id = model_id or model_cfg.get("model_id") or DEFAULT_MODEL_ID
+    resolved_model_id = (
+        _choose_model_id(model_id)
+        or _choose_model_id(model_cfg.get("model_id"))
+        or DEFAULT_MODEL_ID
+    )
     element_id = model_cfg.get("element_id")
     if not resolved_model_id or "<" in resolved_model_id or resolved_model_id.strip() == "":
         raise ValueError("No valid model_id set. Update config/models.py with a valid model ID (e.g., from /platformModels).")
