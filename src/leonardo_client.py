@@ -43,7 +43,6 @@ def build_headers(api_key: str) -> dict:
         "authorization": f"Bearer {api_key}",
     }
 
-
 def _raise_request_error(resp: requests.Response, payload: dict[str, Any]) -> None:
     """Raise a RuntimeError with detailed context from a Leonardo response."""
 
@@ -96,17 +95,12 @@ def start_generation(
     print("POST /generations payload:")
     print(json.dumps(payload, indent=2))
 
-    try:
-        resp = requests.post(
-            f"{BASE_URL}/generations",
-            headers=headers,
-            json=payload,
-            timeout=60,
-        )
-    except requests.exceptions.RequestException as exc:
-        raise RuntimeError(
-            "Could not reach Leonardo. Check your internet connection, VPN/proxy, or DNS settings."
-        ) from exc
+    resp = requests.post(
+        f"{BASE_URL}/generations",
+        headers=build_headers(api_key),
+        json=payload,
+        timeout=60,
+    )
     content_type = resp.headers.get("content-type", "")
     if not resp.ok:
         _raise_request_error(resp, payload)
@@ -125,12 +119,7 @@ def poll_generation(generation_id: str, max_attempts: int = 30, interval_seconds
     headers = build_headers(api_key)
     for attempt in range(1, max_attempts + 1):
         time.sleep(interval_seconds)
-        try:
-            resp = requests.get(url, headers=headers, timeout=60)
-        except requests.exceptions.RequestException as exc:
-            raise RuntimeError(
-                "Could not reach Leonardo while polling. Check connectivity, VPN/proxy, or DNS."
-            ) from exc
+        resp = requests.get(url, headers=headers, timeout=60)
         if resp.status_code >= 400:
             print(f"Poll {attempt}: error {resp.status_code} {resp.text}")
             continue

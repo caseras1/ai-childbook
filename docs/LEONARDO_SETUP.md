@@ -45,9 +45,3 @@ If the API key or model ID is wrong, the error will now include hints (e.g., how
 python -m src.generate_story --story dragons_20 --child-name Alex
 ```
 The script only calls Leonardo to generate new images; it does **not** upload any of your local photos.
-
-## If you hit a connection error
-An error like `NameResolutionError` or "Could not reach Leonardo" means the client cannot resolve or reach `cloud.leonardo.ai`.
-- Verify you are online (or not behind a restrictive VPN, proxy, or firewall).
-- Try switching networks or DNS (e.g., Google DNS `8.8.8.8`) if resolution is blocked.
-- Run the smoke test in step 4 again after connectivity is restored.
