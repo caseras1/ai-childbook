@@ -120,6 +120,7 @@ def generate_story(
         model_cfg = next(iter(MODELS.values()), {})
 
     resolved_model_id = model_id or model_cfg.get("model_id") or DEFAULT_MODEL_ID
+    element_id = model_cfg.get("element_id")
     if not resolved_model_id or "<" in resolved_model_id or resolved_model_id.strip() == "":
         raise ValueError("No valid model_id set. Update config/models.py with your trained model ID.")
     style_hint = model_cfg.get("style_hint", STYLE_HINT)
@@ -140,6 +141,7 @@ def generate_story(
             width=1024,
             height=1024,
             negative_prompt=NEGATIVE_PROMPT,
+            element_id=element_id,
         )
         img = Image.open(out_img).convert("RGB")
         page_img = render_page_with_text(img, page["text"], title=f"Page {page['page']}")
