@@ -65,10 +65,6 @@ def _raise_request_error(resp: requests.Response, payload: dict[str, Any]) -> No
             hints.append(
                 "Model IDs come from Leonardo > Models > (select model) > ID in the URL."
             )
-        if payload.get("datasetId"):
-            hints.append(
-                "Dataset IDs come from Leonardo > Datasets > (select dataset) > ID in the URL."
-            )
     hint_text = f" Hints: {' '.join(hints)}" if hints else ""
     raise RuntimeError(
         f"Leonardo request failed ({resp.status_code}). Details: {error_detail}.{hint_text}"
@@ -85,6 +81,13 @@ def start_generation(
     elements: list[dict] | None = None,
     dataset_id: str | None = None,
 ) -> str:
+    """Kick off a Leonardo generation using the official `/generations` shape.
+
+    The payload mirrors the Getting Started example (prompt, modelId, width,
+    height, optional num_images) and intentionally omits unsupported training
+    fields such as `datasetId`. Use the `/elements` endpoint separately if you
+    need to train custom models.
+    """
     api_key = get_api_key()
     headers = build_headers(api_key)
     payload: dict = {
@@ -174,6 +177,37 @@ def download_image(url: str, out_path: Path) -> Path:
     with open(out_path, "wb") as f:
         f.write(resp.content)
     return out_path
+
+
+def list_platform_models(limit: int = 15) -> list[dict[str, Any]]:
+    """Return public platform models from Leonardo for easier ID selection.
+
+    The official docs recommend pulling platform model IDs from
+    `/api/rest/v1/platformModels` (see https://docs.leonardo.ai/docs/connect-to-leonardoai-mcp).
+    This helper keeps the call in one place with the same error handling we use
+    for generation requests.
+    """
+
+    api_key = get_api_key()
+    headers = build_headers(api_key)
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/platformModels",
+            headers=headers,
+            params={"page": 1, "perPage": max(1, limit)},
+            timeout=60,
+        )
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(
+            "Could not reach Leonardo platformModels. Check connectivity, VPN/proxy, or DNS."
+        ) from exc
+    if not resp.ok:
+        _raise_request_error(resp, payload={})
+    data = resp.json()
+    models = data.get("data") or data
+    if not isinstance(models, list):
+        raise RuntimeError(f"Unexpected platformModels response: {data}")
+    return models[:limit]
 
 
 def generate_image_and_download(

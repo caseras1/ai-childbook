@@ -1,13 +1,12 @@
 # config/models.py
 #
-# Define your Leonardo models here. Keep dataset/init IDs in comments so you can reuse them later.
+# Define your Leonardo models here. Keep dataset/init IDs in comments if you are training models separately.
 
 MODELS = {
-    "boy_dataset": {
-        "title": "Boy Adventure Dataset",
-        # Replace with your Leonardo dataset ID for boys (e.g., dino adventures)
-        "dataset_id": "edb5fc09-59ea-41f5-a484-227ca0712673",
-        # Optionally keep the model_id empty to fall back to the SDXL base model
+    "boy_model": {
+        "title": "Boy Adventure Model",
+        # Optional: keep dataset/init IDs as comments if you plan to train models later.
+        # dataset_id: edb5fc09-59ea-41f5-a484-227ca0712673
         "model_id": [
             "f37bf120-42da-4154-b803-90142b779922",
             "cb431562-df55-43bc-8673-cd9a607a18ab",
@@ -17,11 +16,11 @@ MODELS = {
         ],
         "style_hint": "brown skinned boy, with blond hair and blue eyes. playful smile, bright outdoor scenes.",
     },
-    # "girl_dataset": {
-    #     "title": "Girl Adventure Dataset",
-    #     # Replace with your Leonardo dataset ID for girls (e.g., princess or space stories)
-    #     "dataset_id": "<GIRL_DATASET_ID>",
-    #     # Optionally keep the model_id empty to fall back to the SDXL base model
+    # "girl_model": {
+    #     "title": "Girl Adventure Model",
+    #     # Optional comment-only storage for dataset IDs if you train your own models later:
+    #     # dataset_id: <GIRL_DATASET_ID>
+    #     # Add your trained model ID(s) below when available.
     #     # "model_id": "",
     #     "style_hint": "girl with wavy hair in pastel outfit, friendly expression, storybook lighting.",
     # },

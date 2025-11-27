@@ -25,7 +25,7 @@ STORY_TEMPLATES = {
 }
 
 DEFAULT_MODEL_KEY = next(iter(MODELS.keys())) if MODELS else None
-DEFAULT_MODEL_ID = ""
+DEFAULT_MODEL_ID = "6bef9f1b-29cb-40c7-b9df-32b51c1f67d3"  # Platform model from Leonardo Getting Started example
 STYLE_HINT = "light-skinned girl with blond hair in a pink princess dress, holding a rose, castle softly blurred in the background"
 NEGATIVE_PROMPT = "text, logo, watermark, nsfw, blood, gore, creepy, scary, low quality"
 
