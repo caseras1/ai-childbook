@@ -1,7 +1,66 @@
-# config/models.py
-#
-# Define your Leonardo models here. Keep dataset/init IDs in comments if you are training models separately.
+"""Central Leonardo configuration used by both the CLI and story generator."""
 
+BASE_URL = "https://cloud.leonardo.ai/api/rest/v1"
+
+# Leonardo model IDs (from the web app > Models > ID in the URL).
+LEO_MODELS = {
+    # Example: Phoenix 1.0 base model
+    "phoenix_1_0": "REPLACE_WITH_MODEL_ID",
+    # Add more models as needed (e.g., Flux, Alchemy, etc.)
+}
+
+# Leonardo user Elements (trained LoRA IDs). These are integers.
+LEO_ELEMENTS = {
+    # Example: your trained boy element (userLoraId)
+    "boy_model": 0,
+    # Example: your trained girl element (userLoraId)
+    "girl_model": 0,
+}
+
+# Base style presets for each character type.
+# Fill in the prompts/settings you used when you created the images in that style.
+STYLE_PRESETS = {
+    "boy": {
+        "title": "Boy collection style",
+        "model_key": "phoenix_1_0",  # points to LEO_MODELS
+        "element_key": "boy_model",  # points to LEO_ELEMENTS
+        "base_prompt": "REPLACE_WITH_BOY_BASE_PROMPT",
+        "width": 832,
+        "height": 1216,
+        "alchemy": True,
+        "contrast": 3.5,
+    },
+    "girl": {
+        "title": "Girl collection style",
+        "model_key": "phoenix_1_0",
+        "element_key": "girl_model",
+        "base_prompt": "REPLACE_WITH_GIRL_BASE_PROMPT",
+        "width": 832,
+        "height": 1216,
+        "alchemy": True,
+        "contrast": 3.5,
+    },
+}
+
+# Story variants layered on top of the base style.
+STORY_VARIANTS = {
+    "dino": {
+        "extra_prompt": "REPLACE_WITH_DINO_STORY_DETAILS",
+        # Optional: image IDs from your collection to nudge style
+        "image_prompts": [],
+    },
+    "princess": {
+        "extra_prompt": "REPLACE_WITH_PRINCESS_STORY_DETAILS",
+        "image_prompts": [],
+    },
+    "superhero": {
+        "extra_prompt": "REPLACE_WITH_SUPERHERO_STORY_DETAILS",
+        "image_prompts": [],
+    },
+}
+
+# Backwards-compatible model list used by the story generator UI.
+# You can keep dataset/init IDs as comments if you plan to train models later.
 MODELS = {
     "boy_model": {
         "title": "Boy Adventure Model",

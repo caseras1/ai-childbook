@@ -15,7 +15,9 @@ Follow these steps from Leonardo's official **Getting Started** guide so the pro
 ## 2) Pick a model ID (exactly what the docs expect)
 - From Leonardo's UI: **Explore › Models** (for platform models) or **Models › Trained Models** (for your fine-tunes).
 - Open the model page and copy the **ID** from the URL (e.g., `6bef9f1b-29cb-40c7-b9df-32b51c1f67d3`).
-- Paste that ID into `config/models.py` under `model_id` (a list is allowed; the first non-empty entry is used) or pass `--model-id` on the CLI.
+- Paste that ID into `config/models.py`:
+  - `LEO_MODELS["phoenix_1_0"]` (or any key you prefer)
+  - `MODELS` entries if you use the story generator UI
 - No other IDs belong in the `/generations` call—**do not send `datasetId` in generation payloads**. Datasets are only used while training new models via the `/elements` endpoint, which is an advanced paid workflow.
 
 ### Minimal request that matches the docs
@@ -38,9 +40,28 @@ curl --request POST \
 The project now sends this same shape (plus optional fields like `num_images` or `negative_prompt`) so you can copy/paste working values from the docs.
 
 ## 3) Optional: element/style IDs
-If your trained model exposes an element/style ID, grab it from the model page and place it in `config/models.py` as `element_id`. The generation call includes the element for consistency, but datasets are not transmitted.
+If your trained model exposes an element/style ID, grab it from the model page and place it in `config/models.py`:
+- `LEO_ELEMENTS["boy_model"]` / `LEO_ELEMENTS["girl_model"]`
+- Optional: `element_id` within `MODELS` if you use the story generator UI
 
-## 4) Test your credentials and pull model IDs from Leonardo (recommended)
+These become `userLoraId` values in the payload so Leonardo applies your trained character style. Datasets are not transmitted.
+
+## 4) Collections vs. API payloads (what the API actually uses)
+- A **Collection** in Leonardo is just a folder in the web UI; the API does not accept a `collectionId` field.
+- To “reuse” a collection’s look, copy the exact settings of the images in that collection (model ID, user element ID, prompt, ratio, contrast) into your code.
+- Optional: grab image IDs from the collection (View Details → Image ID) and place them in `image_prompts` for any story variant you want to bias toward that look.
+
+### Where to put those settings (single place)
+- `config/models.py` now holds everything for both the CLI and story generator:
+  - `BASE_URL` (leave default)
+  - `LEO_MODELS`: base model IDs (Phoenix, Flux, etc.)
+  - `LEO_ELEMENTS`: your trained Elements (`userLoraId` integers)
+  - `STYLE_PRESETS`: per-character defaults (boy/girl base prompt, width/height, contrast, model/element keys)
+  - `STORY_VARIANTS`: per-story add-ons (dino, princess, superhero) with optional `image_prompts` list for reference IDs
+  - `MODELS`: backwards-compatible entries for the story generator UI
+- Run the CLI like: `python codex_cli.py boy dino`
+
+## 5) Test your credentials and pull model IDs from Leonardo (recommended)
 The official docs recommend pulling platform models from Leonardo itself instead of copying stale IDs. Run the helper:
 
 ```bash
@@ -68,7 +89,7 @@ PY
 ```
 If the API key or model ID is wrong, the error will include hints (e.g., how to find a valid model ID). If you see `Unexpected variable datasetId` from any other client, remove that field—it's not accepted by `/generations` per the official docs.
 
-## 5) Generate your first book locally
+## 6) Generate your first book locally
 ```bash
 python -m src.generate_story --story dragons_20 --child-name Alex
 ```
