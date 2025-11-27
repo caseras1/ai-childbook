@@ -43,7 +43,6 @@ def build_headers(api_key: str) -> dict:
         "authorization": f"Bearer {api_key}",
     }
 
-
 def _raise_request_error(resp: requests.Response, payload: dict[str, Any]) -> None:
     """Raise a RuntimeError with detailed context from a Leonardo response."""
 
@@ -98,7 +97,7 @@ def start_generation(
 
     resp = requests.post(
         f"{BASE_URL}/generations",
-        headers=headers,
+        headers=build_headers(api_key),
         json=payload,
         timeout=60,
     )
