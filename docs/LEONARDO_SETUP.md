@@ -15,7 +15,8 @@ Follow these steps to get the API keys and IDs the app needs to generate a local
 ## 2) Pick a model or dataset ID
 - To use a platform model, open **Explore › Models**, pick a model, and copy the **ID** from the model detail page URL.
 - To use one of your fine-tuned models, open **Models › Trained Models**, choose the model, and copy its ID from the URL.
-- To use a dataset (for consistency across a book without a trained model), open **Datasets**, select yours, and copy the dataset ID from the URL. Add it to `config/models.py` under `dataset_id`.
+- To use a dataset (for consistency across a book without a trained model), open **Datasets**, select yours, and copy the dataset ID from the URL. Add it to `config/models.py` under `dataset_id`. If `model_id` is blank, the code will fall back to the SDXL base model.
+- You can store several trained model IDs in a list (e.g., `"model_id": ["first-id", "second-id"]`); the app will pick the first non-empty entry.
 - Update `config/models.py` with whichever IDs you have (model, dataset, element) or pass `--model-id` when running `generate_story.py`.
 
 ## 3) Optional: element/style IDs

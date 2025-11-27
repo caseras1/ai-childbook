@@ -1,6 +1,6 @@
 # config/models.py
 #
-# Define your Leonardo models here. Keep the dataset/init IDs in comments so you can reuse them later.
+# Define your Leonardo models here. Keep dataset/init IDs in comments so you can reuse them later.
 
 MODELS = {
     "boy_dataset": {

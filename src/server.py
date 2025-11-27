@@ -36,9 +36,15 @@ def api_models():
 
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
-    story_key = (request.form.get("story") or "").strip().lower()
-    model_key = (request.form.get("model") or "").strip()
-    child_name = (request.form.get("child_name") or "").strip()
+    def _coerce_value(field: str) -> str:
+        value = request.form.getlist(field) or request.form.get(field) or ""
+        if isinstance(value, list):
+            value = value[0] if value else ""
+        return str(value)
+
+    story_key = _coerce_value("story").strip().lower()
+    model_key = _coerce_value("model").strip()
+    child_name = _coerce_value("child_name").strip()
     # no image upload in this flow
 
     if story_key not in STORY_TEMPLATES:

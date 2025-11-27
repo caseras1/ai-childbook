@@ -15,11 +15,11 @@ ROOT = Path(__file__).resolve().parent.parent
 
 STORY_TEMPLATES = {
     "dragons_20": {
-        "title": "Anna and the Dragon Valley",
+        "title": "Dragon Valley Adventures",
         "json_path": ROOT / "data" / "pages_dragons.json",
     },
     "vacation_20": {
-        "title": "Anna's Vacation Dream",
+        "title": "Vacation Adventures",
         "json_path": ROOT / "data" / "pages_vacation.json",
     },
 }
@@ -99,6 +99,26 @@ def _get_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
+def _choose_model_id(candidate: str | Sequence[str] | None) -> str | None:
+    """Return the first usable model ID from a string or sequence.
+
+    Supports lists/tuples of model IDs in `config/models.py` so the user can
+    keep multiple trained models handy. Blank strings and placeholder values
+    are ignored.
+    """
+
+    if candidate is None:
+        return None
+    if isinstance(candidate, str):
+        cleaned = candidate.strip()
+        return cleaned if cleaned and "<" not in cleaned else None
+    for model in candidate:
+        cleaned = str(model).strip()
+        if cleaned and "<" not in cleaned:
+            return cleaned
+    return None
+
+
 def generate_story(
     story_key: str,
     child_name: str,
@@ -119,8 +139,13 @@ def generate_story(
     else:
         model_cfg = next(iter(MODELS.values()), {})
 
-    resolved_model_id = model_id or model_cfg.get("model_id") or DEFAULT_MODEL_ID
+    resolved_model_id = (
+        _choose_model_id(model_id)
+        or _choose_model_id(model_cfg.get("model_id"))
+        or DEFAULT_MODEL_ID
+    )
     element_id = model_cfg.get("element_id")
+    dataset_id = model_cfg.get("dataset_id")
     if not resolved_model_id or "<" in resolved_model_id or resolved_model_id.strip() == "":
         raise ValueError("No valid model_id set. Update config/models.py with your trained model ID.")
     style_hint = model_cfg.get("style_hint", STYLE_HINT)
@@ -142,6 +167,7 @@ def generate_story(
             height=1024,
             negative_prompt=NEGATIVE_PROMPT,
             element_id=element_id,
+            dataset_id=dataset_id,
         )
         img = Image.open(out_img).convert("RGB")
         page_img = render_page_with_text(img, page["text"], title=f"Page {page['page']}")
