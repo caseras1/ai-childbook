@@ -3,25 +3,92 @@ from __future__ import annotations
 import json
 import os
 import time
+from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import requests
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
-load_dotenv(ROOT / ".env")
 
 BASE_URL = "https://cloud.leonardo.ai/api/rest/v1"
-API_KEY = os.getenv("LEONARDO_API_KEY")
 
-if not API_KEY:
-    raise RuntimeError("LEONARDO_API_KEY not set in .env")
 
-HEADERS = {
-    "accept": "application/json",
-    "content-type": "application/json",
-    "authorization": f"Bearer {API_KEY}",
-}
+@lru_cache(maxsize=1)
+def get_api_key() -> str:
+    """Return the Leonardo API key from .env or environment variables.
+
+    The original implementation raised a RuntimeError during import if the key
+    was missing, which prevented the rest of the application (including
+    frontend development) from running. We lazily load and cache the key so the
+    error is raised only when Leonardo requests are initiated.
+    """
+
+    load_dotenv(ROOT / ".env")
+    api_key = (os.getenv("LEONARDO_API_KEY") or "").strip()
+    if api_key and "<" not in api_key:
+        return api_key
+
+    raise RuntimeError(
+        "LEONARDO_API_KEY not set. Add it to .env (LEONARDO_API_KEY=...) or set "
+        "the environment variable before calling Leonardo APIs."
+    )
+
+
+def build_headers(api_key: str) -> dict:
+    return {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "authorization": f"Bearer {api_key}",
+    }
+
+
+def _raise_request_error(resp: requests.Response, payload: dict[str, Any]) -> None:
+    """Raise a RuntimeError with detailed context from a Leonardo response."""
+
+    error_detail: str | None = None
+    try:
+        data = resp.json()
+        error_detail = data.get("error") or data.get("message") or data
+    except Exception:
+        error_detail = resp.text
+
+    hints = []
+    if resp.status_code == 401:
+        hints.append("Check LEONARDO_API_KEY; the key may be missing or invalid.")
+    if resp.status_code == 400:
+        hints.append(
+            "Verify modelId, width/height limits, and that the prompt is not empty."
+        )
+        if payload.get("modelId"):
+            hints.append(
+                "Model IDs come from Leonardo > Models > (select model) > ID in the URL."
+            )
+    hint_text = f" Hints: {' '.join(hints)}" if hints else ""
+    raise RuntimeError(
+        f"Leonardo request failed ({resp.status_code}). Details: {error_detail}.{hint_text}"
+    )
+
+
+def _parse_json_response(resp: requests.Response, context: str) -> dict:
+    """Return response JSON or raise a helpful error when parsing fails."""
+
+    content_type = resp.headers.get("content-type", "")
+    if "text/html" in content_type.lower():
+        raise RuntimeError(
+            f"{context}: Unexpected HTML from Leonardo (Cloudflare). Body: {resp.text[:300]}"
+        )
+    if "json" not in content_type.lower():
+        raise RuntimeError(
+            f"{context}: Expected JSON response but got content-type '{content_type}'. Body: {resp.text[:300]}"
+        )
+    try:
+        return resp.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            f"{context}: Could not parse JSON response. Body: {resp.text[:300]}"
+        ) from exc
 
 
 def start_generation(
@@ -33,6 +100,15 @@ def start_generation(
     negative_prompt: str | None = None,
     elements: list[dict] | None = None,
 ) -> str:
+    """Kick off a Leonardo generation using the official `/generations` shape.
+
+    The payload mirrors the Getting Started example (prompt, modelId, width,
+    height, optional num_images) and intentionally omits unsupported training
+    fields such as `datasetId`. Use the `/elements` endpoint separately if you
+    need to train custom models.
+    """
+    api_key = get_api_key()
+    headers = build_headers(api_key)
     payload: dict = {
         "prompt": prompt,
         "modelId": model_id,
@@ -47,24 +123,20 @@ def start_generation(
     print("POST /generations payload:")
     print(json.dumps(payload, indent=2))
 
-    resp = requests.post(
-        f"{BASE_URL}/generations",
-        headers={
-            "accept": "application/json",
-            "content-type": "application/json",
-            "authorization": f"Bearer {API_KEY}",
-        },
-        json=payload,
-        timeout=60,
-    )
-    content_type = resp.headers.get("content-type", "")
+    try:
+        resp = requests.post(
+            f"{BASE_URL}/generations",
+            headers=headers,
+            json=payload,
+            timeout=60,
+        )
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(
+            "Could not reach Leonardo. Check your internet connection, VPN/proxy, or DNS settings."
+        ) from exc
     if not resp.ok:
-        print("Status:", resp.status_code)
-        print(resp.text)
-    if "text/html" in content_type.lower():
-        raise RuntimeError("Unexpected HTML from Leonardo (Cloudflare).")
-    resp.raise_for_status()
-    data = resp.json()
+        _raise_request_error(resp, payload)
+    data = _parse_json_response(resp, "Leonardo generation response")
     # Leonardo returns sdGenerationJob.generationId; if missing, surface error
     if "sdGenerationJob" not in data or "generationId" not in data["sdGenerationJob"]:
         raise RuntimeError(f"Unexpected response from Leonardo: {data}")
@@ -73,13 +145,23 @@ def start_generation(
 
 def poll_generation(generation_id: str, max_attempts: int = 30, interval_seconds: int = 5) -> dict:
     url = f"{BASE_URL}/generations/{generation_id}"
+    api_key = get_api_key()
+    headers = build_headers(api_key)
     for attempt in range(1, max_attempts + 1):
         time.sleep(interval_seconds)
-        resp = requests.get(url, headers=HEADERS, timeout=60)
+        try:
+            resp = requests.get(url, headers=headers, timeout=60)
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(
+                "Could not reach Leonardo while polling. Check connectivity, VPN/proxy, or DNS."
+            ) from exc
         if resp.status_code >= 400:
             print(f"Poll {attempt}: error {resp.status_code} {resp.text}")
             continue
-        data = resp.json()
+        try:
+            data = _parse_json_response(resp, "Leonardo poll response")
+        except RuntimeError as exc:
+            raise RuntimeError(f"Polling failed: {exc}") from exc
         gen = data.get("generations_by_pk") or data
         status = gen.get("status")
         print(f"Poll {attempt} status: {status}")
@@ -101,12 +183,48 @@ def get_first_image_url(result_json: dict) -> str:
 
 
 def download_image(url: str, out_path: Path) -> Path:
-    resp = requests.get(url, timeout=120)
+    try:
+        resp = requests.get(url, timeout=120)
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(
+            "Could not download image from Leonardo. Check connectivity, VPN/proxy, or DNS."
+        ) from exc
     resp.raise_for_status()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "wb") as f:
         f.write(resp.content)
     return out_path
+
+
+def list_platform_models(limit: int = 15) -> list[dict[str, Any]]:
+    """Return public platform models from Leonardo for easier ID selection.
+
+    The official docs recommend pulling platform model IDs from
+    `/api/rest/v1/platformModels` (see https://docs.leonardo.ai/docs/connect-to-leonardoai-mcp).
+    This helper keeps the call in one place with the same error handling we use
+    for generation requests.
+    """
+
+    api_key = get_api_key()
+    headers = build_headers(api_key)
+    try:
+        resp = requests.get(
+            f"{BASE_URL}/platformModels",
+            headers=headers,
+            params={"page": 1, "perPage": max(1, limit)},
+            timeout=60,
+        )
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(
+            "Could not reach Leonardo platformModels. Check connectivity, VPN/proxy, or DNS."
+        ) from exc
+    if not resp.ok:
+        _raise_request_error(resp, payload={})
+    data = _parse_json_response(resp, "Leonardo platformModels response")
+    models = data.get("data") or data
+    if not isinstance(models, list):
+        raise RuntimeError(f"Unexpected platformModels response: {data}")
+    return models[:limit]
 
 
 def generate_image_and_download(
