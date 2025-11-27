@@ -25,7 +25,7 @@ STORY_TEMPLATES = {
 }
 
 DEFAULT_MODEL_KEY = next(iter(MODELS.keys())) if MODELS else None
-DEFAULT_MODEL_ID = "16e7060a-803e-4df3-97ee-edcfa5dc9cc8"  # SDXL 1.0 base model (platformModels)
+DEFAULT_MODEL_ID = ""
 STYLE_HINT = "light-skinned girl with blond hair in a pink princess dress, holding a rose, castle softly blurred in the background"
 NEGATIVE_PROMPT = "text, logo, watermark, nsfw, blood, gore, creepy, scary, low quality"
 
@@ -39,7 +39,7 @@ def load_pages(path: Path) -> list[dict]:
 
 def build_page_prompt(child_name: str, scene: str, style_hint: str = STYLE_HINT) -> str:
     return (
-        f"3D storybook illustration of a young child named {child_name}, "
+        f"3D storybook illustration of a child named {child_name}, "
         f"{style_hint}, in this scene: {scene}. "
         "Soft cinematic lighting, pastel colors, gentle depth of field, "
         "charming children's picture book style, high detail, no text, no logo."
@@ -147,7 +147,7 @@ def generate_story(
     element_id = model_cfg.get("element_id")
     dataset_id = model_cfg.get("dataset_id")
     if not resolved_model_id or "<" in resolved_model_id or resolved_model_id.strip() == "":
-        raise ValueError("No valid model_id set. Update config/models.py with a valid model ID (e.g., from /platformModels).")
+        raise ValueError("No valid model_id set. Update config/models.py with your trained model ID.")
     style_hint = model_cfg.get("style_hint", STYLE_HINT)
     title = story["title"]
     pages = load_pages(story["json_path"])
